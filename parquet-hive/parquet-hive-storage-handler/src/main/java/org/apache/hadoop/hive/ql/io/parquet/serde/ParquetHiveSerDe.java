@@ -36,7 +36,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
@@ -49,6 +48,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 
+import parquet.io.ParquetEncodingException;
 import parquet.io.api.Binary;
 
 /**
@@ -227,96 +227,70 @@ public class ParquetHiveSerDe implements SerDe {
     //if passed an expected Writable, no need to convert and just returns that object.
     //if passed a different class of Writable, it tries to convert that obj to target Writable (indicated by
     //target objectInspector; if it cannot, return null object.
-    switch (inspector.getPrimitiveCategory()) {
-    case VOID:
+    try {
+      switch (inspector.getPrimitiveCategory()) {
+      case VOID:
+        return null;
+      case BOOLEAN:
+        if (obj instanceof BooleanWritable) {
+          return (BooleanWritable)obj;
+        } else {
+    	  //parseBoolean and valueOf return false for invalid entry. hence does the comparison first.
+    	  if (obj.toString().equalsIgnoreCase("true") || obj.toString().equalsIgnoreCase("false")) {
+    	    return new BooleanWritable(Boolean.valueOf(obj.toString()));
+    	  } else {
+    	    return null;
+    	  }
+        }
+      case BYTE:
+        if (obj instanceof ByteWritable) {
+          return (ByteWritable)obj;
+        } else {
+          return new ByteWritable(Byte.parseByte(obj.toString()));
+        }
+      case DOUBLE:
+        if (obj instanceof DoubleWritable) {
+          return (DoubleWritable)obj;
+        } else {
+          return new DoubleWritable(Double.parseDouble(obj.toString()));
+        }  	
+      case FLOAT:
+        if (obj instanceof FloatWritable) {
+          return (FloatWritable)obj;
+        } else {
+          return new FloatWritable(Float.parseFloat(obj.toString()));
+        }
+      case INT:
+        if (obj instanceof IntWritable) {
+          return (IntWritable)obj;
+        } else {
+          return new IntWritable(Integer.parseInt(obj.toString()));
+        }
+      case LONG:
+        if (obj instanceof LongWritable) {
+          return (LongWritable)obj;
+        } else {
+          return new LongWritable(Long.parseLong(obj.toString()));
+        }
+      case SHORT:
+        if (obj instanceof ShortWritable) {
+          return (ShortWritable)obj;
+        } else {
+          return new ShortWritable(Short.parseShort(obj.toString()));
+        }
+      case STRING:
+        if (obj instanceof BinaryWritable) {
+          return (BinaryWritable)obj;
+        } else {
+          return new BinaryWritable(Binary.fromString(obj.toString()));
+        }
+      default:
+        throw new SerDeException("Unknown primitive : " + inspector.getPrimitiveCategory());
+      }
+    } catch (NumberFormatException e) {
       return null;
-    case BOOLEAN:
-    	try {
-    		if (obj instanceof BooleanWritable) {
-    			return (BooleanWritable)obj;
-    		} else {
-    			//parseBoolean and valueOf return false for invalid entry. hence does the comparison first.
-    			if (obj.toString().equalsIgnoreCase("true") || obj.toString().equalsIgnoreCase("false")) {
-    			    return new BooleanWritable(Boolean.valueOf(obj.toString()));
-    			} else {
-    				return null;
-    			}
-    		}
-    	} catch (Exception e) {
-    		return null;
-    	}
-    case BYTE:
-    	try {
-    		if (obj instanceof ByteWritable) {
-    			return (ByteWritable)obj;
-    		} else {
-    			return new ByteWritable(Byte.parseByte(obj.toString()));
-    		}
-    	} catch (NumberFormatException e) {
-    		return null;
-    	}
-    case DOUBLE:
-    	try {
-    		if (obj instanceof DoubleWritable) {
-    			return (DoubleWritable)obj;
-    		} else {
-    			return new DoubleWritable(Double.parseDouble(obj.toString()));
-    		}
-    	} catch (NumberFormatException e) {
-    		return null;
-    	}
-    case FLOAT:
-    	try {
-    		if (obj instanceof FloatWritable) {
-    			return (FloatWritable)obj;
-    		} else {
-    			return new FloatWritable(Float.parseFloat(obj.toString()));
-    		}
-    	} catch (NumberFormatException e) {
-    		return null;
-    	}
-    case INT:
-    	try {
-    		if (obj instanceof IntWritable) {
-    			return (IntWritable)obj;
-    		} else {
-    			return new IntWritable(Integer.parseInt(obj.toString()));
-    		}
-    	} catch (Exception e) {
-    		return null;
-    	}
-    case LONG:
-    	try {
-    		if (obj instanceof LongWritable) {
-    			return (LongWritable)obj;
-    		} else {
-    		return new LongWritable(Long.parseLong(obj.toString()));
-    		}
-    	} catch (Exception e) {
-    		return null;
-    	}
-    case SHORT:
-    	try {
-    		if (obj instanceof ShortWritable) {
-    			return (ShortWritable)obj;
-    		} else {
-    			return new ShortWritable(Short.parseShort(obj.toString()));
-    		}
-    	} catch (Exception e) {
-    		return null;
-    	}
-    case STRING:
-    	try {
-    		if (obj instanceof BinaryWritable) {
-    			return (BinaryWritable)obj;
-    		} else {
-    			return new BinaryWritable(Binary.fromString(obj.toString()));
-    		}
-    	} catch (Exception e) {
-    		return null;
-    	}
-    default:
-      throw new SerDeException("Unknown primitive : " + inspector.getPrimitiveCategory());
+    } catch (ParquetEncodingException e) {
+      return null;
     }
   }
 
