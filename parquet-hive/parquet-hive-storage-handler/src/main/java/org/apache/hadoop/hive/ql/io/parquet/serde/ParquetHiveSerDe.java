@@ -36,13 +36,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.BooleanObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.ByteObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.FloatObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
@@ -125,6 +118,16 @@ public class ParquetHiveSerDe implements SerDe {
     deserializedSize = 0;
     if (blob instanceof ArrayWritable) {
       deserializedSize = ((ArrayWritable) blob).get().length;
+      //in order to support changing column type, we would have to
+      //inspect each element of array writable.
+      Writable[] values = ((ArrayWritable) blob).get();
+      final List<? extends StructField> fields = ((StructObjectInspector)objInspector).getAllStructFieldRefs();
+      for (int i=0; i<fields.size(); i++) {
+    	  final StructField field = fields.get(i);
+    	  if (field.getFieldObjectInspector().getCategory()==Category.PRIMITIVE) {
+    		  values[i] = createPrimitive(values[i], (PrimitiveObjectInspector)field.getFieldObjectInspector());
+    	  }
+      }
       return blob;
     } else {
       return null;
@@ -221,25 +224,97 @@ public class ParquetHiveSerDe implements SerDe {
     if (obj == null) {
       return null;
     }
+    //if passed an expected Writable, no need to convert and just returns that object.
+    //if passed a different class of Writable, it tries to convert that obj to target Writable (indicated by
+    //target objectInspector; if it cannot, return null object.
     switch (inspector.getPrimitiveCategory()) {
     case VOID:
       return null;
     case BOOLEAN:
-      return new BooleanWritable(((BooleanObjectInspector) inspector).get(obj) ? Boolean.TRUE : Boolean.FALSE);
+    	try {
+    		if (obj instanceof BooleanWritable) {
+    			return (BooleanWritable)obj;
+    		} else {
+    			//parseBoolean and valueOf return false for invalid entry. hence does the comparison first.
+    			if (obj.toString().equalsIgnoreCase("true") || obj.toString().equalsIgnoreCase("false")) {
+    			    return new BooleanWritable(Boolean.valueOf(obj.toString()));
+    			} else {
+    				return null;
+    			}
+    		}
+    	} catch (Exception e) {
+    		return null;
+    	}
     case BYTE:
-      return new ByteWritable((byte) ((ByteObjectInspector) inspector).get(obj));
+    	try {
+    		if (obj instanceof ByteWritable) {
+    			return (ByteWritable)obj;
+    		} else {
+    			return new ByteWritable(Byte.parseByte(obj.toString()));
+    		}
+    	} catch (NumberFormatException e) {
+    		return null;
+    	}
     case DOUBLE:
-      return new DoubleWritable(((DoubleObjectInspector) inspector).get(obj));
+    	try {
+    		if (obj instanceof DoubleWritable) {
+    			return (DoubleWritable)obj;
+    		} else {
+    			return new DoubleWritable(Double.parseDouble(obj.toString()));
+    		}
+    	} catch (NumberFormatException e) {
+    		return null;
+    	}
     case FLOAT:
-      return new FloatWritable(((FloatObjectInspector) inspector).get(obj));
+    	try {
+    		if (obj instanceof FloatWritable) {
+    			return (FloatWritable)obj;
+    		} else {
+    			return new FloatWritable(Float.parseFloat(obj.toString()));
+    		}
+    	} catch (NumberFormatException e) {
+    		return null;
+    	}
     case INT:
-      return new IntWritable(((IntObjectInspector) inspector).get(obj));
+    	try {
+    		if (obj instanceof IntWritable) {
+    			return (IntWritable)obj;
+    		} else {
+    			return new IntWritable(Integer.parseInt(obj.toString()));
+    		}
+    	} catch (Exception e) {
+    		return null;
+    	}
     case LONG:
-      return new LongWritable(((LongObjectInspector) inspector).get(obj));
+    	try {
+    		if (obj instanceof LongWritable) {
+    			return (LongWritable)obj;
+    		} else {
+    		return new LongWritable(Long.parseLong(obj.toString()));
+    		}
+    	} catch (Exception e) {
+    		return null;
+    	}
     case SHORT:
-      return new ShortWritable((short) ((ShortObjectInspector) inspector).get(obj));
+    	try {
+    		if (obj instanceof ShortWritable) {
+    			return (ShortWritable)obj;
+    		} else {
+    			return new ShortWritable(Short.parseShort(obj.toString()));
+    		}
+    	} catch (Exception e) {
+    		return null;
+    	}
     case STRING:
-      return new BinaryWritable(Binary.fromString(((StringObjectInspector) inspector).getPrimitiveJavaObject(obj)));
+    	try {
+    		if (obj instanceof BinaryWritable) {
+    			return (BinaryWritable)obj;
+    		} else {
+    			return new BinaryWritable(Binary.fromString(obj.toString()));
+    		}
+    	} catch (Exception e) {
+    		return null;
+    	}
     default:
       throw new SerDeException("Unknown primitive : " + inspector.getPrimitiveCategory());
     }
