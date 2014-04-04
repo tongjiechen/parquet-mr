@@ -47,7 +47,6 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-
 import parquet.io.ParquetEncodingException;
 import parquet.io.api.Binary;
 
@@ -123,10 +122,10 @@ public class ParquetHiveSerDe implements SerDe {
       Writable[] values = ((ArrayWritable) blob).get();
       final List<? extends StructField> fields = ((StructObjectInspector)objInspector).getAllStructFieldRefs();
       for (int i=0; i<fields.size(); i++) {
-    	  final StructField field = fields.get(i);
-    	  if (field.getFieldObjectInspector().getCategory()==Category.PRIMITIVE) {
-    		  values[i] = createPrimitive(values[i], (PrimitiveObjectInspector)field.getFieldObjectInspector());
-    	  }
+        final StructField field = fields.get(i);
+        if (field.getFieldObjectInspector().getCategory()==Category.PRIMITIVE) {
+          values[i] = createPrimitive(values[i], (PrimitiveObjectInspector)field.getFieldObjectInspector());
+        }
       }
       return blob;
     } else {
@@ -235,12 +234,12 @@ public class ParquetHiveSerDe implements SerDe {
         if (obj instanceof BooleanWritable) {
           return (BooleanWritable)obj;
         } else {
-    	  //parseBoolean and valueOf return false for invalid entry. hence does the comparison first.
-    	  if (obj.toString().equalsIgnoreCase("true") || obj.toString().equalsIgnoreCase("false")) {
-    	    return new BooleanWritable(Boolean.valueOf(obj.toString()));
-    	  } else {
-    	    return null;
-    	  }
+          //parseBoolean and valueOf return false for invalid entry. hence does the comparison first.
+          if (obj.toString().equalsIgnoreCase("true") || obj.toString().equalsIgnoreCase("false")) {
+            return new BooleanWritable(Boolean.valueOf(obj.toString()));
+          } else {
+            return null;
+          }
         }
       case BYTE:
         if (obj instanceof ByteWritable) {
@@ -253,7 +252,7 @@ public class ParquetHiveSerDe implements SerDe {
           return (DoubleWritable)obj;
         } else {
           return new DoubleWritable(Double.parseDouble(obj.toString()));
-        }  	
+        }
       case FLOAT:
         if (obj instanceof FloatWritable) {
           return (FloatWritable)obj;

@@ -34,49 +34,88 @@ import parquet.io.api.Binary;
 
 public class TestParquetSerDe extends TestCase {
 
+  //Data
+  private final Writable[] arr = new Writable[8];
+  private ArrayWritable arrWritable;
+
+  @Override
+  public void setUp() {
+    arr[0] = new ByteWritable((byte) 123);
+    arr[1] = new ShortWritable((short) 456);
+    arr[2] = new IntWritable(789);
+    arr[3] = new LongWritable(1000l);
+    arr[4] = new DoubleWritable((double) 5.3);
+    arr[5] = new BinaryWritable(Binary.fromString("hive and hadoop and parquet. Big family."));
+
+    final Writable[] mapContainer = new Writable[1];
+    final Writable[] map = new Writable[3];
+    for (int i = 0; i < 3; ++i) {
+      final Writable[] pair = new Writable[2];
+      pair[0] = new BinaryWritable(Binary.fromString("key_" + i));
+      pair[1] = new IntWritable(i);
+      map[i] = new ArrayWritable(Writable.class, pair);
+    }
+    mapContainer[0] = new ArrayWritable(Writable.class, map);
+    arr[6] = new ArrayWritable(Writable.class, mapContainer);
+
+    final Writable[] arrayContainer = new Writable[1];
+    final Writable[] array = new Writable[5];
+    for (int i = 0; i < 5; ++i) {
+      array[i] = new BinaryWritable(Binary.fromString("elem_" + i));
+    }
+    arrayContainer[0] = new ArrayWritable(Writable.class, array);
+    arr[7] = new ArrayWritable(Writable.class, arrayContainer);
+
+    arrWritable = new ArrayWritable(Writable.class, arr);
+  }
+
   public void testParquetHiveSerDe() throws Throwable {
     try {
-      // Create the SerDe
-      System.out.println("test: testParquetHiveSerDe");
-
       final ParquetHiveSerDe serDe = new ParquetHiveSerDe();
       final Configuration conf = new Configuration();
       final Properties tbl = createProperties();
       serDe.initialize(conf, tbl);
 
-      // Data
-      final Writable[] arr = new Writable[8];
-
-      arr[0] = new ByteWritable((byte) 123);
-      arr[1] = new ShortWritable((short) 456);
-      arr[2] = new IntWritable(789);
-      arr[3] = new LongWritable(1000l);
-      arr[4] = new DoubleWritable((double) 5.3);
-      arr[5] = new BinaryWritable(Binary.fromString("hive and hadoop and parquet. Big family."));
-
-      final Writable[] mapContainer = new Writable[1];
-      final Writable[] map = new Writable[3];
-      for (int i = 0; i < 3; ++i) {
-        final Writable[] pair = new Writable[2];
-        pair[0] = new BinaryWritable(Binary.fromString("key_" + i));
-        pair[1] = new IntWritable(i);
-        map[i] = new ArrayWritable(Writable.class, pair);
-      }
-      mapContainer[0] = new ArrayWritable(Writable.class, map);
-      arr[6] = new ArrayWritable(Writable.class, mapContainer);
-
-      final Writable[] arrayContainer = new Writable[1];
-      final Writable[] array = new Writable[5];
-      for (int i = 0; i < 5; ++i) {
-        array[i] = new BinaryWritable(Binary.fromString("elem_" + i));
-      }
-      arrayContainer[0] = new ArrayWritable(Writable.class, array);
-      arr[7] = new ArrayWritable(Writable.class, arrayContainer);
-
-      final ArrayWritable arrWritable = new ArrayWritable(Writable.class, arr);
       // Test
       deserializeAndSerializeLazySimple(serDe, arrWritable);
-      System.out.println("test: testParquetHiveSerDe - OK");
+    } catch (final Throwable e) {
+      e.printStackTrace();
+      throw e;
+    }
+  }
+
+  public void testParquetHiveSerDe2() throws Throwable {
+    try {
+      final ParquetHiveSerDe serDe = new ParquetHiveSerDe();
+      final Configuration conf = new Configuration();
+      final Properties tbl = createProperties();
+      //change all number types to be bigint type
+      tbl.setProperty("columns.types", "bigint:bigint:bigint:bigint:double:string:map<string,int>:array<string>");
+      serDe.initialize(conf, tbl);
+
+      // Test
+      deserializeAndSerializeLazySimple(serDe, arrWritable);
+    } catch (final Throwable e) {
+      e.printStackTrace();
+      throw e;
+    }
+  }
+
+  public void testParquetHiveSerDe3() throws Throwable {
+    try {
+      final ParquetHiveSerDe serDe = new ParquetHiveSerDe();
+      final Configuration conf = new Configuration();
+      final Properties tbl = createProperties();
+      //change the string type to be int type, after deserialize, the column would contain null value
+      //change the bigint type to be int type, after deserialize, the column contains the same numerical value
+      tbl.setProperty("columns.types", "tinyint:smallint:int:int:double:int:map<string,int>:array<string>");
+      serDe.initialize(conf, tbl);
+
+      // Test
+      final Object row = serDe.deserialize(arrWritable);
+      final Writable[] deserized = ((ArrayWritable)row).get();
+      assertNull(deserized[5]);
+      assertEquals(arr[3], deserized[3]);
 
     } catch (final Throwable e) {
       e.printStackTrace();
