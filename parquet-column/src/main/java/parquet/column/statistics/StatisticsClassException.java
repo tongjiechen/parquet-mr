@@ -13,13 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package parquet.schema;
+package parquet.column.statistics;
 
-public enum OriginalType {
-  MAP,
-  LIST,
-  UTF8,
-  MAP_KEY_VALUE,
-  ENUM,
-  DECIMAL;
+import parquet.ParquetRuntimeException;
+
+/**
+ * Thrown if the two Statistics objects have mismatching types
+ *
+ * @author  Katya Gonina
+ */
+public class StatisticsClassException extends ParquetRuntimeException {
+  private static final long serialVersionUID = 1L;
+
+  public StatisticsClassException(String className1, String className2) {
+    super("Statistics classes mismatched: " + className1 + " vs. " + className2);
+  }
 }
