@@ -297,17 +297,7 @@ public class ParquetLoader extends LoadFunc implements LoadMetadata, LoadPushDow
       } catch (CloneNotSupportedException e) {
         throw new FrontendException("Clone not supported for the fieldschema", e);
       }
-      if (rf.getSubFields() == null) {
-        s.add(f);
-      } else {
-        Schema innerSchema = getSchemaFromRequiredFieldList(f.schema, rf.getSubFields());
-        if (innerSchema == null) {
-          return null;
-        } else {
-          f.schema = innerSchema;
-          s.add(f);
-        }
-      }
+      s.add(f);
     }
     return s;
   }
